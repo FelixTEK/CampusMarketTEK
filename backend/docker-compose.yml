@@ -1,0 +1,32 @@
+# PostgreSQL สำหรับพัฒนา
+# ใช้ใน VM Debian (Docker Engine) หรือบน Windows (Docker Desktop) ก็ได้
+# ต้องมีไฟล์ .env ข้างไฟล์นี้ที่ตั้ง POSTGRES_PASSWORD (ไฟล์ .env ไม่ถูก commit)
+#
+#   docker compose up -d        เปิดฐานข้อมูล
+#   docker compose ps           ดูสถานะ (healthy = พร้อมใช้)
+#   docker compose down         ปิด (ข้อมูลยังอยู่ใน volume)
+#   docker compose down -v      ปิดและลบข้อมูลทั้งหมด
+#
+# หมายเหตุ: ถ้ารันบน Windows ที่มี PostgreSQL ติดตั้งอยู่แล้วใช้พอร์ต 5432 ให้เปลี่ยนเลขซ้ายของ ports เป็น 5433
+
+services:
+  db:
+    image: postgres:17
+    container_name: campus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: campus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ต้องตั้ง POSTGRES_PASSWORD ในไฟล์ .env}
+      POSTGRES_DB: campus_market
+    ports:
+      - "5432:5432"
+    volumes:
+      - campus-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campus -d campus_market"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  campus-db-data:

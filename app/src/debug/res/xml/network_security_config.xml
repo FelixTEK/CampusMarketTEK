@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- เฉพาะ build แบบ debug: อนุญาต HTTP ทุกปลายทาง เพื่อให้เครื่องจริงต่อ backend ผ่าน IP ในวง LAN ได้ -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

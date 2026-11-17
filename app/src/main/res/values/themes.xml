@@ -1,0 +1,4 @@
+<resources>
+    <!-- ธีมของหน้าต่างก่อน Compose วาดเท่านั้น สี/ตัวอักษรจริงอยู่ใน ui/theme/Theme.kt -->
+    <style name="Theme.CampusMarketTEK" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

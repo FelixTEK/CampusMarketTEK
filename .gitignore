@@ -1,0 +1,27 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Backend (Elysia + Bun)
+backend/node_modules
+backend/.env
+backend/uploads
+backend/private
+backend/logs
+
+# Course sheets in docs/ (keep only our own .md docs)
+docs/*.pdf
+docs/*.docx
+docs/*.pptx

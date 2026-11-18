@@ -3,6 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Android 13+: ขออนุญาตก่อนขึ้นแจ้งเตือนของระบบ (ไม่ให้ก็ใช้แอปได้ แค่ไม่เด้งตอนอยู่นอกแอป) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- กล้องไม่บังคับ: เครื่องที่ไม่มีกล้องยังติดตั้งได้ (ใช้ได้ทุกอย่างยกเว้นถ่ายบัตร) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 
     <application
         android:name=".CampusMarketApp"
@@ -18,13 +25,46 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- ผลล็อกอิน SSO กลับจากเบราว์เซอร์: campusmarket://auth?code=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="campusmarket" android:host="auth" />
+            </intent-filter>
+
+            <!-- ลิงก์ในแบนเนอร์/ข้างนอกแอป: campusmarket://listing/<id> เปิดหน้าประกาศ -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="campusmarket" android:host="listing" />
+            </intent-filter>
         </activity>
+
+        <!-- ปิดตัวสตาร์ท WorkManager อัตโนมัติ: เรากำหนดค่าเองใน CampusMarketApp (ให้ Worker ใช้ Hilt ได้) -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>

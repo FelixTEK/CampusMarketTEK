@@ -13,6 +13,11 @@ plugins {
 //                  หรือรัน gradlew ด้วย -PapiBaseUrl=...
 val apiBaseUrl = providers.gradleProperty("apiBaseUrl").orElse("http://localhost:3000/")
 
+// token สำหรับปุ่ม "เข้าแบบทดสอบ" ในบิลด์ debug เท่านั้น (ใช้ดู UI ก่อนทำหน้าเข้าสู่ระบบจริงในเฟส 3)
+//   สร้างด้วย `bun scripts/dev-token.ts` ใน backend แล้วรัน gradlew -PdevToken=<token>
+//   ค่าเริ่มต้นว่าง = ไม่มีปุ่ม · ห้ามใส่ใน gradle.properties ที่ commit
+val devToken = providers.gradleProperty("devToken").orElse("")
+
 android {
     namespace = "com.example.campusmarkettek"
     compileSdk {
@@ -29,6 +34,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        buildConfigField("String", "DEV_TOKEN", "\"${devToken.get()}\"")
     }
 
     buildTypes {
@@ -92,6 +98,7 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.lottie.compose)
 
     testImplementation(libs.junit)

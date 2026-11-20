@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -97,6 +98,7 @@ private fun iconFor(type: String): ImageVector = when (type) {
     "DEAL_REJECTED", "DEAL_CANCELLED" -> Icons.Outlined.Cancel
     "DEAL_REMINDER" -> Icons.Outlined.Timer
     "REVIEW_PROMPT" -> Icons.Outlined.StarBorder
+    "SPAM_WARN" -> Icons.Outlined.WarningAmber
     else -> Icons.Outlined.NotificationsNone
 }
 

@@ -261,3 +261,58 @@ describe("ผู้ดูแล: ระงับ/ปลดระงับ (BR15)
     expect((await call("GET", "/users/me", users.outsider.token)).status).toBe(200);
   });
 });
+
+describe("ผู้ดูแล: รายชื่อผู้ใช้ · ตั้ง/ถอนผู้ดูแล", () => {
+  const mk = async (name: string, f: { verified?: boolean; banned?: boolean } = {}) => {
+    const [u] = await sql`INSERT INTO users (kmitl_sub, display_name, is_verified, is_banned) VALUES (${`test-m-${tag}-adm-${name}`}, ${`ลิสต์${tag}${name}`}, ${f.verified ?? true}, ${f.banned ?? false}) RETURNING id`;
+    return { id: u.id as string, token: await signToken(u.id) };
+  };
+
+  test("รายชื่อ: ผู้ใช้ทั่วไปเข้าไม่ได้ · ค้นชื่อ · กรองถูกระงับ/ผู้ดูแล · ไม่ส่งอีเมลออกมา", async () => {
+    const a = await mk("a"); const bad = await mk("bad", { banned: true });
+    expect((await call("GET", "/admin/users", a.token)).status).toBe(403);
+
+    const found = (await call("GET", `/admin/users?q=${encodeURIComponent(`ลิสต์${tag}`)}`, users.admin.token)).data;
+    expect(found.items.map((i: any) => i.id).sort()).toEqual([a.id, bad.id].sort());
+    expect(found.items.every((i: any) => !("email" in i))).toBe(true);
+
+    const banned = (await call("GET", `/admin/users?filter=banned&q=${encodeURIComponent(`ลิสต์${tag}`)}`, users.admin.token)).data.items;
+    expect(banned.map((i: any) => i.id)).toEqual([bad.id]);
+    expect(banned[0].isBanned).toBe(true);
+
+    const admins = (await call("GET", `/admin/users?filter=admin&q=${encodeURIComponent(`${"admin"}`)}`, users.admin.token)).data.items;
+    expect(admins.length).toBeGreaterThanOrEqual(2);
+    expect(admins.every((i: any) => i.isAdmin)).toBe(true);
+
+    // อักขระพิเศษของ LIKE ถูกมองเป็นตัวอักษรธรรมดา (ไม่ใช่ wildcard)
+    expect((await call("GET", `/admin/users?q=${encodeURIComponent("%")}`, users.admin.token)).data.items.length).toBe(0);
+    expect((await call("GET", "/admin/users?filter=ไม่มีแบบนี้&q=zzzz", users.admin.token)).status).toBe(200);
+  });
+
+  test("ตั้งเป็นผู้ดูแล: มีผลทันที · ซ้ำ 409 · ไม่ยืนยัน/ถูกระงับ 409 · ไม่มีผู้ใช้ 404 · ผู้ใช้ทั่วไปทำไม่ได้ 403", async () => {
+    const x = await mk("x"); const unv = await mk("unv", { verified: false }); const bad = await mk("bad2", { banned: true });
+    expect((await call("GET", "/admin/reports?status=OPEN", x.token)).status).toBe(403); // ยังไม่ใช่ผู้ดูแล
+    expect((await call("POST", `/admin/users/${x.id}/promote`, x.token)).status).toBe(403); // ตั้งตัวเองไม่ได้ ถ้าไม่ใช่ผู้ดูแล
+
+    expect((await call("POST", `/admin/users/${x.id}/promote`, users.admin.token)).status).toBe(200);
+    expect((await call("GET", "/admin/reports?status=OPEN", x.token)).status).toBe(200); // ใช้สิทธิ์ได้ทันที ไม่ต้องล็อกอินใหม่
+    expect((await call("POST", `/admin/users/${x.id}/promote`, users.admin.token)).status).toBe(409);
+    expect((await call("POST", `/admin/users/${unv.id}/promote`, users.admin.token)).status).toBe(409);
+    expect((await call("POST", `/admin/users/${bad.id}/promote`, users.admin.token)).status).toBe(409);
+    expect((await call("POST", `/admin/users/${crypto.randomUUID()}/promote`, users.admin.token)).status).toBe(404);
+    expect((await call("POST", "/admin/users/ไม่ใช่uuid/promote", users.admin.token)).status).toBe(404);
+  });
+
+  test("ถอนสิทธิ์: ถอนตัวเองไม่ได้ · ถอนคนอื่นมีผลทันที · ถอนซ้ำ 409 · แล้วระงับได้ตามปกติ", async () => {
+    const y = await mk("y");
+    await call("POST", `/admin/users/${y.id}/promote`, users.admin.token);
+    expect((await call("POST", `/admin/users/${y.id}/ban`, users.admin.token, { reason: "x" })).status).toBe(403); // ผู้ดูแลระงับกันไม่ได้
+
+    expect((await call("POST", `/admin/users/${users.admin.id}/demote`, users.admin.token)).status).toBe(403); // ตัวเอง
+    expect((await call("POST", `/admin/users/${y.id}/demote`, users.admin.token)).status).toBe(200);
+    expect((await call("GET", "/admin/reports?status=OPEN", y.token)).status).toBe(403); // เสียสิทธิ์ทันที
+    expect((await call("POST", `/admin/users/${y.id}/demote`, users.admin.token)).status).toBe(409);
+    expect((await call("POST", `/admin/users/${y.id}/ban`, users.admin.token, { reason: "ทดสอบ" })).status).toBe(200);
+    expect((await call("POST", `/admin/users/${y.id}/promote`, users.admin.token)).status).toBe(409); // ถูกระงับแล้วตั้งไม่ได้
+  });
+});

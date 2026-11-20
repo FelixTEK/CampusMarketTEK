@@ -57,6 +57,17 @@ data class CloseReportRequest(val note: String)
 data class BanRequest(val reason: String)
 data class AdminUserDto(val id: String, val displayName: String, val isBanned: Boolean, val isAdmin: Boolean)
 
+/** แถวในรายชื่อผู้ใช้ของผู้ดูแล (ไม่มีอีเมล) */
+data class AdminUserRowDto(
+    val id: String,
+    val displayName: String,
+    val isVerified: Boolean,
+    val isAdmin: Boolean,
+    val isBanned: Boolean,
+    val isKmitl: Boolean,
+)
+data class AdminUserListDto(val items: List<AdminUserRowDto>, val hasMore: Boolean)
+
 interface ModerationApi {
     @GET("users/{id}")
     suspend fun profile(@Path("id") id: String): SellerProfileDto
@@ -78,6 +89,15 @@ interface ModerationApi {
 
     @POST("admin/reports/{id}/close")
     suspend fun closeReport(@Path("id") id: String, @Body body: CloseReportRequest): OkDto
+
+    @GET("admin/users")
+    suspend fun adminUsers(@Query("q") q: String, @Query("filter") filter: String): AdminUserListDto
+
+    @POST("admin/users/{id}/promote")
+    suspend fun promote(@Path("id") id: String): OkDto
+
+    @POST("admin/users/{id}/demote")
+    suspend fun demote(@Path("id") id: String): OkDto
 
     @GET("admin/users/{id}")
     suspend fun adminUser(@Path("id") id: String): AdminUserDto

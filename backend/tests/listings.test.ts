@@ -329,3 +329,43 @@ describe("ประกาศของฉัน และแท็ก", () => {
     expect(tags.some((t) => t.categoryId === null)).toBe(true);
   });
 });
+
+describe("เตือนสแปม: ข้อความเดิม 100% (เตือนเฉยๆ ไม่บล็อก)", () => {
+  const title = `สแปมทดสอบ ${tag}`;
+  const dup = (token: string, description = "ข้อความเดิมเป๊ะ") => post(token, { categoryId: itLeaf, title, description });
+
+  test("ใบที่ 1–2 ไม่เตือน · ใบที่ 3 ลงได้แต่มี warning · ใบถัดไปเตือนต่อ", async () => {
+    const r1 = await dup(users.seller.token);
+    const r2 = await dup(users.seller.token);
+    expect([r1.status, r1.data.warning, r2.status, r2.data.warning]).toEqual([200, null, 200, null]);
+    const r3 = await dup(users.seller.token);
+    expect(r3.status).toBe(200); // ไม่ถูกบล็อก
+    expect(r3.data.status).toBe("AVAILABLE");
+    expect(typeof r3.data.warning).toBe("string");
+    expect((await dup(users.seller.token)).data.warning).toBeTruthy();
+    // เตือนผ่านการแจ้งเตือนในแอป (ใบที่ 3 และ 4 = 2 แถว) · ใบที่ 1–2 ไม่มี
+    const n = await sql`SELECT body, ref_id FROM notifications WHERE user_id = ${users.seller.id} AND type = 'SPAM_WARN'`;
+    expect(n.length).toBe(2);
+    expect(n.some((x: any) => x.ref_id === r3.data.id)).toBe(true);
+  });
+
+  test("ข้อความต่างกันแม้ตัวอักษรเดียว หรือต่างชื่อ → ไม่เตือน (เทียบ 100% เท่านั้น)", async () => {
+    expect((await dup(users.seller.token, "ข้อความเดิมเป๊ะ!")).data.warning).toBeNull();
+    expect((await post(users.seller.token, { categoryId: itLeaf, title: `${title} ต่าง`, description: "ข้อความเดิมเป๊ะ" })).data.warning).toBeNull();
+  });
+
+  test("บัญชีอื่นลงข้อความเดียวกันไม่ถูกนับ · ใบที่ยกเลิกแล้วไม่ถูกนับ · เกิน 30 วันไม่ถูกนับ", async () => {
+    for (let i = 0; i < 3; i++) expect((await dup(users.other.token)).data.warning).toBe(i < 2 ? null : DUP_MSG);
+    const t2 = `สแปมยกเลิก ${tag}`;
+    const mk = () => post(users.other.token, { categoryId: itLeaf, title: t2, description: "x" });
+    const ids = [(await mk()).data.id, (await mk()).data.id];
+    await sql`UPDATE listings SET status = 'CANCELLED' WHERE id IN ${sql(ids)}`;
+    expect((await mk()).data.warning).toBeNull(); // 2 ใบเดิมถูกยกเลิก → ไม่นับ
+    const t3 = `สแปมเก่า ${tag}`;
+    const old = [(await post(users.other.token, { categoryId: itLeaf, title: t3, description: "y" })).data.id, (await post(users.other.token, { categoryId: itLeaf, title: t3, description: "y" })).data.id];
+    await sql`UPDATE listings SET created_at = now() - interval '31 days' WHERE id IN ${sql(old)}`;
+    expect((await post(users.other.token, { categoryId: itLeaf, title: t3, description: "y" })).data.warning).toBeNull();
+  });
+});
+
+const DUP_MSG = "ประกาศนี้ข้อความเหมือนประกาศเดิมของคุณทุกตัวอักษร การลงซ้ำหลายครั้งอาจถูกมองว่าเป็นสแปมและถูกผู้ใช้รายงานได้";

@@ -48,6 +48,7 @@ import com.example.campusmarkettek.ui.chat.ChatListScreen
 import com.example.campusmarkettek.ui.stats.MyStatsScreen
 import com.example.campusmarkettek.ui.privacy.PrivacyScreen
 import com.example.campusmarkettek.ui.admin.AdminBannersScreen
+import com.example.campusmarkettek.ui.admin.AdminUsersScreen
 import com.example.campusmarkettek.ui.admin.AdminBannerFormScreen
 import com.example.campusmarkettek.ui.stats.AdminStatsScreen
 import com.example.campusmarkettek.ui.profile.SellerProfileScreen
@@ -247,6 +248,7 @@ fun MainShell(
                     onOpenListing = { id -> navController.navigate("listing/$id") },
                 )
             }
+            composable("admin/users") { AdminUsersScreen(meId = me.id, onBack = { navController.popBackStack() }) }
             composable("admin/banners") { AdminBannersScreen(onBack = { navController.popBackStack() }, onAdd = { navController.navigate("admin/banners/new") }) }
             composable("admin/banners/new") {
                 AdminBannerFormScreen(
@@ -276,6 +278,7 @@ fun MainShell(
                     onOpenStats = { navController.navigate("stats") },
                     onOpenAdminStats = { navController.navigate("admin/stats") },
                     onOpenBanners = { navController.navigate("admin/banners") },
+                    onOpenAdminUsers = { navController.navigate("admin/users") },
                     onOpenPrivacy = { navController.navigate("privacy") },
                 )
             }

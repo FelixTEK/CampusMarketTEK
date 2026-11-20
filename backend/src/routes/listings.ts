@@ -5,6 +5,7 @@ import { AppError, conflict, forbidden, notFound } from "../errors";
 import { PUBLIC_STATUSES, assertTransition, type ListingStatus } from "../listings/status";
 import { imageUrl, readImage, readImages, removeListingImages, saveImages } from "../listings/storage";
 import { parseIdList, validateListing } from "../listings/validate";
+import { writeLog } from "../logger";
 import { notify } from "../notifications";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -88,6 +89,10 @@ async function loadDetail(id: string, viewer: AuthUser) {
 
 const imageType = ["image/jpeg", "image/png"];
 
+/** ลงประกาศข้อความเดิม 100% ซ้ำกับของตัวเองที่มีอยู่แล้วตั้งแต่กี่ใบ ถึงจะเตือน (ใบใหม่ = ใบที่ 3) */
+const DUPLICATE_WARN_AFTER = 2;
+const DUPLICATE_WARNING = "ประกาศนี้ข้อความเหมือนประกาศเดิมของคุณทุกตัวอักษร การลงซ้ำหลายครั้งอาจถูกมองว่าเป็นสแปมและถูกผู้ใช้รายงานได้";
+
 export const listingRoutes = new Elysia({ name: "routes-listings" })
   .use(auth)
   .guard({ beforeHandle: requireVerified }, (app) =>
@@ -108,6 +113,13 @@ export const listingRoutes = new Elysia({ name: "routes-listings" })
             tagIds: parseIdList(body.tagIds, "แท็ก"),
           });
 
+          // เตือนสแปม (ไม่บล็อก): ชื่อ+รายละเอียดตรงกัน 100% กับประกาศเดิมของตัวเอง ≥ 2 ใบใน 30 วัน → ใบนี้เป็นใบที่ 3 ขึ้นไป · ไม่นับที่ยกเลิกแล้ว
+          const [dup] = await sql`
+            SELECT count(*)::int AS n FROM listings
+            WHERE seller_id = ${me.id} AND title = ${data.title} AND description = ${data.description}
+              AND status <> 'CANCELLED' AND created_at > now() - interval '30 days'`;
+          const duplicateCount: number = dup.n;
+
           const id = crypto.randomUUID();
           const keys = await saveImages(id, images);
           try {
@@ -127,7 +139,13 @@ export const listingRoutes = new Elysia({ name: "routes-listings" })
             await removeListingImages(id); // ไม่ทิ้งรูปค้างถ้าบันทึกฐานข้อมูลไม่สำเร็จ
             throw e;
           }
-          return { id, status: "AVAILABLE" as const };
+          const warning = duplicateCount >= DUPLICATE_WARN_AFTER ? DUPLICATE_WARNING : null;
+          if (warning) {
+            // แอปส่งประกาศจากงานเบื้องหลัง (ไม่มีหน้าจอให้โชว์ทันที) จึงเตือนผ่านการแจ้งเตือนในแอป + บันทึก log ให้ผู้ดูแลดูย้อนหลัง
+            await notify(sql, me.id, "SPAM_WARN", warning, id);
+            void writeLog(`${new Date().toISOString()} SPAM_WARN user=${me.id} listing=${id} same_text_before=${duplicateCount}`);
+          }
+          return { id, status: "AVAILABLE" as const, warning };
         },
         {
           body: t.Object({

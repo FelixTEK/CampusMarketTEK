@@ -9,6 +9,46 @@ import { ALLOWED_STATUSES, parseStudentInfo } from "./student";
  * สลับกลับไปใช้ของจริงได้โดยเอา KMITL_DUMMY ออกจาก .env
  */
 
+/**
+ * นักศึกษาสาธิต 15 คน — เป็นคนเดียวกับผู้ขาย/ผู้ซื้อ สจล. ใน `scripts/seed-demo.ts` (ใช้ข้อมูลชุดนี้ชุดเดียว) จึงล็อกอินผ่าน SSO จำลองแล้วเจอประกาศและบัญชีเดิม
+ * เรียงตามลำดับที่ seed ใช้: 10 คนแรกเป็นผู้ขาย อีก 5 คนเป็นผู้ซื้อ · สถานภาพ "เรียน" ทั้งหมด
+ */
+const CURRICULA = {
+  "01": [["วิศวกรรมคอมพิวเตอร์", "Computer Engineering"], ["วิศวกรรมไฟฟ้า", "Electrical Engineering"], ["วิศวกรรมโยธา", "Civil Engineering"]],
+  "05": [["วิทยาการคอมพิวเตอร์", "Computer Science"], ["เคมี", "Chemistry"], ["ฟิสิกส์", "Physics"]],
+} as const;
+const FACULTY = { "01": ["คณะวิศวกรรมศาสตร์", "Faculty of Engineering"], "05": ["คณะวิทยาศาสตร์", "Faculty of Science"] } as const;
+
+// [รหัสนักศึกษา, M/F, ชื่อ, นามสกุล, ชื่ออังกฤษ, นามสกุลอังกฤษ]
+const DEMO_ROWS: Array<[number, "M" | "F", string, string, string, string]> = [
+  [65017680, "M", "ธนกร", "วงศ์สวัสดิ์", "Thanakorn", "Wongsawat"],
+  [68014165, "M", "ภัทรพล", "ศรีสมบูรณ์", "Phattharaphon", "Srisomboon"],
+  [67057109, "M", "กฤษณะ", "จันทร์เพ็ญ", "Krissana", "Chanpen"],
+  [67057704, "M", "ณัฐวุฒิ", "รัตนพันธ์", "Nattawut", "Rattanaphan"],
+  [65051892, "F", "ปวีณา", "แก้วมณี", "Paweena", "Kaewmanee"],
+  [66055988, "F", "ชลธิชา", "พงษ์เจริญ", "Chonthicha", "Phongcharoen"],
+  [66011883, "F", "อารียา", "สิริวัฒน์", "Areeya", "Siriwat"],
+  [66054183, "F", "วริศรา", "ทองดี", "Warisara", "Thongdee"],
+  [68019964, "F", "กัญญาณัฐ", "ใจมั่น", "Kanyanat", "Jaimun"],
+  [66019287, "F", "นภัสสร", "เกียรติกุล", "Naphatsorn", "Kiattikul"],
+  [66014667, "M", "ศุภณัฐ", "มณีรัตน์", "Suphanat", "Maneerat"],
+  [65051298, "M", "อภิชาติ", "บุญเรือง", "Apichat", "Boonruang"],
+  [68055263, "F", "ธิดารัตน์", "สายทอง", "Thidarat", "Saithong"],
+  [68013588, "M", "รพีภัทร", "อินทร์แก้ว", "Rapheephat", "Inkaew"],
+  [66054111, "M", "พีรวิชญ์", "สุขเกษม", "Peerawit", "Sukkasem"],
+];
+export const DEMO_STUDENTS: Array<Record<string, unknown>> = DEMO_ROWS.map(([id, sex, first, last, firstEn, lastEn], i) => {
+  const ff = String(id).slice(2, 4) as "01" | "05";
+  const [cth, cen] = CURRICULA[ff][i % 3]!;
+  return {
+    student_id: id, prename_th: sex === "M" ? "นาย" : "นางสาว", first_name_th: first, last_name_th: last,
+    prename_en: sex === "M" ? "Mr." : "Ms.", first_name_en: firstEn, last_name_en: lastEn,
+    status: "เรียน",
+    faculty_name_th: FACULTY[ff][0], faculty_name_en: FACULTY[ff][1],
+    curriculum_name_th: cth, curriculum_name_en: cen,
+  };
+});
+
 /** นักศึกษาตัวอย่าง 3 คน — รูปแบบ JSON ตรงกับ GET /students/{id} ของ Student API (student_id = YYFFNNNN: ปีที่เข้า, รหัสคณะ, ลำดับ) */
 export const DUMMY_STUDENTS: Array<Record<string, unknown>> = [
   {
@@ -34,6 +74,7 @@ export const DUMMY_STUDENTS: Array<Record<string, unknown>> = [
     curriculum_name_th: "วิศวกรรมคอมพิวเตอร์", curriculum_name_en: "Computer Engineering",
     level: 1,
   },
+  ...DEMO_STUDENTS,
 ];
 
 /** จำลอง GET /students/{id}: ต้องมี header apikey (ไม่มี = 401 เหมือนของจริง) · ไม่พบ = 404 */

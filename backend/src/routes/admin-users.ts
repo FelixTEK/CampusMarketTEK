@@ -49,10 +49,60 @@ async function unban(targetId: string, adminId: string) {
   return { ok: true };
 }
 
+/**
+ * ตั้ง/ถอนผู้ดูแล (เพิ่มสตาฟ): is_admin มีผลทันทีเพราะ auth plugin โหลดผู้ใช้ทุก request
+ * ตั้งได้เฉพาะคนที่ยืนยันตัวตนแล้วและไม่ถูกระงับ · ถอนสิทธิ์ตัวเองไม่ได้ → มีผู้ดูแลเหลืออย่างน้อย 1 คนเสมอ
+ */
+async function setAdmin(targetId: string, adminId: string, on: boolean) {
+  if (!UUID.test(targetId)) throw notFound("ไม่พบผู้ใช้");
+  if (!on && targetId === adminId) throw forbidden("OWN_TARGET", "ถอนสิทธิ์ผู้ดูแลของตัวเองไม่ได้ (ให้ผู้ดูแลคนอื่นทำแทน)");
+  const [u] = await sql`SELECT is_admin, is_banned, is_verified FROM users WHERE id = ${targetId} AND deleted_at IS NULL`;
+  if (!u) throw notFound("ไม่พบผู้ใช้");
+  if (u.is_admin === on) throw conflict(on ? "ผู้ใช้นี้เป็นผู้ดูแลอยู่แล้ว" : "ผู้ใช้นี้ไม่ได้เป็นผู้ดูแล");
+  if (on && (u.is_banned || !u.is_verified)) throw conflict("ตั้งเป็นผู้ดูแลได้เฉพาะผู้ใช้ที่ยืนยันตัวตนแล้วและไม่ถูกระงับ");
+  await sql`UPDATE users SET is_admin = ${on} WHERE id = ${targetId}`;
+  void writeLog(`${new Date().toISOString()} ${on ? "USER_PROMOTE" : "USER_DEMOTE"} admin=${adminId} user=${targetId}`);
+  return { ok: true };
+}
+
+const LIST_FILTERS = ["all", "banned", "admin"] as const;
+const LIST_LIMIT = 50;
+
 export const adminUserRoutes = new Elysia({ name: "routes-admin-users", prefix: "/admin/users" })
   .use(auth)
   .guard({ beforeHandle: requireAdmin }, (app) =>
     app
+      // รายชื่อผู้ใช้ไว้ค้นหา ดูคนที่ถูกระงับ/ผู้ดูแล · ค้นจากชื่อที่แสดงหรืออีเมล · ไม่รวมบัญชีที่ลบแล้ว · ไม่ส่งอีเมลออกไป (ใช้ค้นอย่างเดียว)
+      .get(
+        "/",
+        async ({ query }) => {
+          const filter = (LIST_FILTERS as readonly string[]).includes(query.filter ?? "") ? query.filter! : "all";
+          const q = (query.q ?? "").trim().slice(0, 100);
+          const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+          const rows = await sql`
+            SELECT id, display_name, is_verified, is_admin, is_banned, (kmitl_sub IS NOT NULL) AS is_kmitl, created_at
+            FROM users
+            WHERE deleted_at IS NULL
+              AND (${q} = '' OR display_name ILIKE ${like} OR email ILIKE ${like})
+              AND (${filter} = 'all' OR (${filter} = 'banned' AND is_banned) OR (${filter} = 'admin' AND is_admin))
+            ORDER BY display_name, id
+            LIMIT ${LIST_LIMIT + 1}`;
+          return {
+            items: rows.slice(0, LIST_LIMIT).map((r: any) => ({
+              id: r.id as string,
+              displayName: r.display_name as string,
+              isVerified: r.is_verified as boolean,
+              isAdmin: r.is_admin as boolean,
+              isBanned: r.is_banned as boolean,
+              isKmitl: r.is_kmitl as boolean,
+            })),
+            hasMore: rows.length > LIST_LIMIT,
+          };
+        },
+        { query: t.Object({ q: t.Optional(t.String()), filter: t.Optional(t.String()) }) },
+      )
+      .post("/:id/promote", ({ params, user }) => setAdmin(params.id, user!.id, true))
+      .post("/:id/demote", ({ params, user }) => setAdmin(params.id, user!.id, false))
       .post(
         "/:id/ban",
         ({ params, body, user }) => {

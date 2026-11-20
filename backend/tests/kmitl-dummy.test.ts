@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { sql } from "../src/db";
 import { errorHandler } from "../src/errors";
-import { DUMMY_STUDENTS, createDummyKmitlClient, dummyStudentApi } from "../src/kmitl/dummy";
+import { DEMO_STUDENTS, DUMMY_STUDENTS, createDummyKmitlClient, dummyStudentApi } from "../src/kmitl/dummy";
 import { createKmitlService } from "../src/kmitl/service";
 import { ALLOWED_STATUSES, ALL_STATUSES, normalizeKmitlEmail, parseStudentInfo, thaiDisplayName } from "../src/kmitl/student";
 import { kmitlDummyRoutes } from "../src/routes/kmitl-dummy";
@@ -104,19 +104,20 @@ describe("Student API (จำลอง) และการดึงฟิลด�
     expect(res.status).toBe(200);
     expect(((await res.json()) as any).status).toBe("เรียนเกินหลักสูตร");
     const list = await app.handle(new Request(`${BASE}/dummy/student-catalog/v1/students`, { headers: { apikey: "x" } }));
-    expect(((await list.json()) as any[]).length).toBe(3);
+    expect(((await list.json()) as any[]).length).toBe(DUMMY_STUDENTS.length);
     expect((await app.handle(new Request(`${BASE}/dummy/student-catalog/v1/students/1`, { headers: { apikey: "x" } }))).status).toBe(404);
   });
 
-  test("seed 3 คน: รหัส YYFFNNNN สอดคล้องคณะ (01 วิศวะ · 05 วิทยาศาสตร์) · มีทั้งผ่านและไม่ผ่าน", () => {
-    expect(DUMMY_STUDENTS).toHaveLength(3);
+  test("seed 18 คน (3 คนแรก + นักศึกษาสาธิต 15 คน): รหัส YYFFNNNN สอดคล้องคณะ (01 วิศวะ · 05 วิทยาศาสตร์) · มีทั้งผ่านและไม่ผ่าน", () => {
+    expect(DUMMY_STUDENTS).toHaveLength(18);
+    expect(new Set(DUMMY_STUDENTS.map((s) => s.student_id)).size).toBe(18); // รหัสไม่ซ้ำ
     const byFaculty: Record<string, string> = { "01": "คณะวิศวกรรมศาสตร์", "05": "คณะวิทยาศาสตร์" };
-    for (const s of DUMMY_STUDENTS.slice(0, 2)) {
+    for (const s of [...DUMMY_STUDENTS.slice(0, 2), ...DEMO_STUDENTS]) {
       const id = String(s.student_id);
       expect(id).toMatch(/^\d{8}$/);
       expect(byFaculty[id.slice(2, 4)]).toBe(s.faculty_name_th as string);
     }
-    expect(DUMMY_STUDENTS.map((s) => ALLOWED_STATUSES.has(String(s.status)))).toEqual([true, true, false]);
+    expect(DUMMY_STUDENTS.map((s) => ALLOWED_STATUSES.has(String(s.status)))).toEqual([true, true, false, ...DEMO_STUDENTS.map(() => true)]);
   });
 
   test("อีเมลสถาบัน: ตัวพิมพ์เล็ก ลงท้าย @kmitl.ac.th เท่านั้น", () => {
@@ -136,6 +137,16 @@ describe("ล็อกอินด้วย SSO จำลองทั้ง flow
     expect(html).toContain("ไม่ผ่านเงื่อนไข");
     expect(html).toMatch(/name="email"[^>]*value=""/); // ช่องอีเมลว่างให้กรอกเอง
     expect(html).toContain("YYFFNNNN@kmitl.ac.th");
+  });
+
+  test("นักศึกษาสาธิต (ชุดเดียวกับ seed): ล็อกอินแล้วได้ชื่อไทยและคณะตรงข้อมูล", async () => {
+    const st = DEMO_STUDENTS[1]!; // ภัทรพล ศรีสมบูรณ์ · 68014165 · วิศวกรรมศาสตร์
+    const r = await signIn(String(st.student_id));
+    expect(r.stage).toBe("ok");
+    if (r.stage !== "ok") return;
+    expect(r.me).toMatchObject({ displayName: `${st.first_name_th} ${st.last_name_th}`, isVerified: true, isKmitl: true });
+    const [f] = await sql`SELECT id FROM faculties WHERE name_th = ${st.faculty_name_th as string}`;
+    expect(r.me.facultyId).toBe(f.id);
   });
 
   test("นักศึกษา 'เรียน' + กรอกอีเมล → บัญชีได้ชื่อไทย คณะ อีเมล และยืนยันแล้ว", async () => {

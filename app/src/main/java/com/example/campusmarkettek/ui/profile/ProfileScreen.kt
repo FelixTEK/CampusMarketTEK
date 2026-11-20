@@ -100,6 +100,7 @@ fun ProfileScreen(
     onOpenStats: () -> Unit,
     onOpenAdminStats: () -> Unit,
     onOpenBanners: () -> Unit,
+    onOpenAdminUsers: () -> Unit,
     onOpenPrivacy: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
@@ -168,6 +169,10 @@ fun ProfileScreen(
                 onClick = onOpenBanners,
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
             ) { Text("แบนเนอร์โฆษณา (ผู้ดูแล)") }
+            OutlinedButton(
+                onClick = onOpenAdminUsers,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            ) { Text("ผู้ใช้และสิทธิ์ (ผู้ดูแล)") }
         }
 
         // การ์ดสถานะเซิร์ฟเวอร์เป็นเครื่องมือของนักพัฒนา: ผู้ใช้จริงไม่ต้องเห็น

@@ -2,6 +2,7 @@ package com.example.campusmarkettek.data.repository
 
 import com.example.campusmarkettek.data.remote.AdminReportDto
 import com.example.campusmarkettek.data.remote.AdminUserDto
+import com.example.campusmarkettek.data.remote.AdminUserListDto
 import com.example.campusmarkettek.data.remote.BanRequest
 import com.example.campusmarkettek.data.remote.CloseReportRequest
 import com.example.campusmarkettek.data.remote.ModerationApi
@@ -33,4 +34,7 @@ class ModerationRepository @Inject constructor(private val api: ModerationApi) {
     suspend fun adminUser(id: String): AdminUserDto = api.adminUser(id)
     suspend fun ban(id: String, reason: String) { api.ban(id, BanRequest(reason)) }
     suspend fun unban(id: String) { api.unban(id) }
+    suspend fun users(q: String, filter: String): AdminUserListDto = api.adminUsers(q.trim(), filter)
+    suspend fun promote(id: String) { api.promote(id) }
+    suspend fun demote(id: String) { api.demote(id) }
 }

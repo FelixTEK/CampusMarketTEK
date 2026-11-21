@@ -5,11 +5,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.example.campusmarkettek.data.auth.AuthEvents
 import com.example.campusmarkettek.data.auth.NavRequests
 import com.example.campusmarkettek.work.EXTRA_ROUTE
 import com.example.campusmarkettek.data.auth.SsoResult
 import com.example.campusmarkettek.ui.AppRoot
+import com.example.campusmarkettek.ui.SplashAbout
 import com.example.campusmarkettek.ui.theme.CampusMarketTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -22,11 +28,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // หน้า About แสดงเฉพาะตอนเปิดแอปเอง ไม่แสดงเมื่อเปิดจากลิงก์/แจ้งเตือน (ต้องเช็กก่อน handleDeepLink ล้าง intent)
+        val coldStart = savedInstanceState == null && intent?.data == null && intent?.hasExtra(EXTRA_ROUTE) != true
         handleDeepLink(intent)
         enableEdgeToEdge()
         setContent {
             CampusMarketTheme {
-                AppRoot()
+                var showSplash by rememberSaveable { mutableStateOf(coldStart) }
+                Crossfade(targetState = showSplash, label = "splash") { splash ->
+                    if (splash) SplashAbout(onDone = { showSplash = false }) else AppRoot()
+                }
             }
         }
     }

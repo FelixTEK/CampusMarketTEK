@@ -57,9 +57,11 @@
 
 ### สถานะปัจจุบัน
 
-- **ออกแบบเสร็จแล้ว:** แผนงานรายเฟส, สคีมาฐานข้อมูล, workflow ของ Actor ทุกบทบาท และ mockup 20 หน้าจอ
-- **ทำเสร็จแล้ว:** โครงโปรเจกต์แอป (Compose + Hilt + Retrofit), backend พื้นฐานพร้อม `/health`, ฐานข้อมูลใน Docker พร้อม migration และข้อมูลตั้งต้น (คณะ หมวดหมู่ แท็ก), การทดสอบด้วย `bun test` และการเชื่อมแอปบนอีมูเลเตอร์เข้ากับ backend
-- **ยังไม่ได้ทำ:** ฟีเจอร์ของแอปและ API ส่วนใหญ่ (เข้าสู่ระบบ ประกาศ แชต ดีล ฯลฯ) ตามเฟสในแผนงาน
+เป็น **proof of concept** ที่ฟังก์ชันครบตามขอบเขตของแผนและทดสอบอัตโนมัติผ่าน (backend 249 เทสต์) แต่ยังไม่ใช่ระบบ production
+
+- **ทำเสร็จแล้ว:** ล็อกอิน (KMITL SSO และบุคคลภายนอก) การยืนยันตัวตนด้วยบัตร ลงประกาศ ค้นหา รายการโปรด แชตและดีล แจ้งเตือน รีวิว รายงาน แดชบอร์ดผู้ขาย แบนเนอร์โฆษณา ฟังก์ชัน PDPA (ดาวน์โหลดและลบข้อมูล) และฝั่งผู้ดูแล (ตรวจบัตร รายงาน ระงับผู้ใช้ ตั้ง/ถอนผู้ดูแล แบนเนอร์ สถิติ) พร้อมคำเตือนประกาศซ้ำ (ข้อความเหมือนเดิม 100%)
+- **ข้อมูลทดสอบ:** มี SSO จำลอง (`KMITL_DUMMY=true`, นักศึกษา 18 คน) และสคริปต์ seed ผู้ขาย 20 คน ผู้ซื้อ 10 คน ประกาศ 64 รายการ และแบนเนอร์ ดู [docs/SEED_ACCOUNTS.md](docs/SEED_ACCOUNTS.md)
+- **ยังไม่ได้ทำ/ยังไม่ได้ทดสอบ:** SSO จริงของ สจล. (ยังรอ client และ API key), การถ่ายบัตรด้วยกล้องจริง และงานเตรียมส่ง (รายงานฉบับสุดท้าย Sequence/State/Deployment Diagram สไลด์)
 
 ### เอกสาร
 
@@ -68,6 +70,11 @@
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | แผนงาน ข้อกำหนด กติกาธุรกิจ API และ checklist รายเฟส  |
 | [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md)       | แผนภาพ ER และรายละเอียดตาราง                          |
 | [docs/WORKFLOWS.md](docs/WORKFLOWS.md)       | Actor, Use Case, workflow, Sequence และ State Diagram |
+| [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) | สรุปโครงงานจากระบบที่ทำจริง |
+| [docs/TEST_CASES.md](docs/TEST_CASES.md)     | กรณีทดสอบ |
+| [docs/MANUAL_TEST_GUIDE.md](docs/MANUAL_TEST_GUIDE.md) | ขั้นตอนทดสอบด้วยมือบนแอป |
+| [docs/SEED_ACCOUNTS.md](docs/SEED_ACCOUNTS.md) | บัญชีทดสอบและข้อมูลสาธิต |
+| [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) | แผนรับมือเหตุข้อมูลรั่ว |
 
 ### วิธีรันบนเครื่องพัฒนา
 
@@ -90,7 +97,15 @@ bun run dev        # http://localhost:3000/health
 
 # ทดสอบ backend
 bun test
+
+# (ทางเลือก) SSO จำลอง + ข้อมูลสาธิต
+#   ตั้ง KMITL_DUMMY=true ใน backend/.env แล้วรัน
+bun scripts/seed-demo.ts      # ผู้ขาย 20 · ผู้ซื้อ 10 · ประกาศ 64 (--remove เพื่อล้าง)
+bun scripts/seed-banners.ts   # แบนเนอร์ตัวอย่าง 5 รายการ
+bun scripts/dev-admin.ts admin@campusmarket.test "รหัสผ่านอย่างน้อย 8 ตัว"   # สร้าง/รีเซ็ตผู้ดูแล
 ```
+
+ฐานข้อมูลจะใช้ Docker ตามด้านบน หรือจะใช้ PostgreSQL ที่อื่นก็ได้ โดยแก้ `DATABASE_URL` ใน `backend/.env` (ค่าตั้งต้นคือ `localhost:5433`)
 
 ---
 
@@ -147,9 +162,11 @@ Highlights
 
 ### Current status
 
-- **Designed:** phased plan, database schema, workflows for every actor, and 20 screen mockups.
-- **Done:** app skeleton (Compose + Hilt + Retrofit), a minimal backend with `/health`, a Dockerised database with migrations and seed data (faculties, categories, tags), `bun test`, and an emulator-to-backend connection check.
-- **Not done yet:** most app features and API endpoints (login, listings, chat, deals, …) as laid out in the plan's phases.
+A **proof of concept**: functionally complete against the plan's scope with automated tests passing (249 backend tests), but not production-ready.
+
+- **Done:** login (KMITL SSO and outsiders), ID-card verification, listings, search, favourites, chat and deals, notifications, reviews, reports, seller dashboard, ad banners, PDPA functions (data download and deletion), and the admin side (ID review, reports, banning users, promoting/demoting admins, banners, statistics), plus a warning for exact duplicate listings (100% identical text).
+- **Test data:** a dummy SSO (`KMITL_DUMMY=true`, 18 students) and seed scripts for 20 sellers, 10 buyers, 64 listings and banners. See [docs/SEED_ACCOUNTS.md](docs/SEED_ACCOUNTS.md).
+- **Not done / not verified:** the real KMITL SSO (waiting for a client and API key), ID capture with a real camera, and submission work (final report, Sequence/State/Deployment diagrams, slides).
 
 ### Documentation
 
@@ -158,6 +175,11 @@ Highlights
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan, requirements, business rules, API contract and phase checklists |
 | [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md)       | ER diagram and table details                                          |
 | [docs/WORKFLOWS.md](docs/WORKFLOWS.md)       | Actors, use cases, workflows, sequence and state diagrams             |
+| [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) | Project summary based on the system as built                    |
+| [docs/TEST_CASES.md](docs/TEST_CASES.md)     | Test cases                                                            |
+| [docs/MANUAL_TEST_GUIDE.md](docs/MANUAL_TEST_GUIDE.md) | Step-by-step manual testing on the app                      |
+| [docs/SEED_ACCOUNTS.md](docs/SEED_ACCOUNTS.md) | Test accounts and demo data                                         |
+| [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) | Data-breach response plan                                   |
 
 ### Running locally
 
@@ -180,4 +202,11 @@ bun run dev        # http://localhost:3000/health
 
 # Backend tests
 bun test
+
+# (Optional) dummy SSO + demo data: set KMITL_DUMMY=true in backend/.env, then
+bun scripts/seed-demo.ts      # 20 sellers, 10 buyers, 64 listings (--remove to clear)
+bun scripts/seed-banners.ts   # 5 sample banners
+bun scripts/dev-admin.ts admin@campusmarket.test "at-least-8-char-password"   # create/reset an admin
 ```
+
+The database can run in Docker as above, or on any PostgreSQL you point `DATABASE_URL` in `backend/.env` at (default `localhost:5433`).
